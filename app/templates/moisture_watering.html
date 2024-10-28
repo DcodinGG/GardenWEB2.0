@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moistures Data for {{ plant_name }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin: 10px 0;
+        }
+
+        .container {
+            max-width: 80%;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chart-container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+            height: 300px; /* Height for the chart */
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .slider-container {
+            margin-top: 10px;
+        }
+
+        #dateRange {
+            width: 100%;
+            height: 10px;
+            background: #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #totalRange {
+            text-align: center;
+            margin-top: 10px;
+            color: #333;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Moistures Data for {{ plant_name }}</h1>
+        <div class="chart-container">
+            <canvas id="moistureChart"></canvas>
+        </div>
+        <div class="slider-container">
+            <input type="range" id="dateRange" min="0" max="{{ (moistures_data | length - 72) if (moistures_data | length) > 72 else 0 }}" value="{{ (moistures_data | length - 72) if (moistures_data | length) > 72 else 0 }}" step="1">
+        </div>
+        <span id="totalRange">Total Data Points: {{ moistures_data | length }}</span>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('moistureChart').getContext('2d');
+        const moistureLabels = {{ moistures_data | map(attribute='date') | list | tojson }};
+        const moistureValues = {{ moistures_data | map(attribute='moisture') | list | tojson }};
+        const wateringDates = {{ watering_data | map(attribute='date') | list | tojson }};
+        const wateringValues = {{ watering_data | map(attribute='watered') | list | tojson }};
+
+        const initialIndex = Math.max(0, moistureLabels.length - 72);
+        const moistureChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: moistureLabels.slice(initialIndex),
+                datasets: [{
+                    label: 'Moisture Level',
+                    data: moistureValues.slice(initialIndex),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: 'Watered',
+                    data: wateringValues.slice(initialIndex).map((val, index) => val === 1 ? moistureValues[initialIndex + index] : null),
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    pointRadius: 8,
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    showLine: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 10,
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        min: -0.5,  // Set the minimum Y value to -0.5 for margin
+                        max: 10.5   // Set the maximum Y value to 10.5 for margin
+                    }
+                }
+            }
+        });
+
+        const slider = document.getElementById('dateRange');
+        slider.addEventListener('input', function() {
+            const index = parseInt(this.value);
+            moistureChart.data.labels = moistureLabels.slice(index, index + 72);
+            moistureChart.data.datasets[0].data = moistureValues.slice(index, index + 72);
+            moistureChart.data.datasets[1].data = wateringValues.slice(index, index + 72).map((val, idx) => val === 1 ? moistureValues[index + idx] : null);
+            moistureChart.update();
+        });
+    </script>
+    <a href="{{ url_for('index') }}" class="back-button">Back to Home</a>
+</body>
+</html>

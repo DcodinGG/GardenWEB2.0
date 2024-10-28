@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant and Weather Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin: 10px 0;
+        }
+
+        .container {
+            max-width: 80%;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chart-container, .table-container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px; /* Adjusted for better visualization */
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .slider-container {
+            margin-top: 10px;
+        }
+
+        #dateRange {
+            width: 100%;
+            height: 10px;
+            background: #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #totalRange {
+            text-align: center;
+            margin-top: 10px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Data</h1>
+        <div class="chart-container">
+            <canvas id="weatherChart"></canvas>
+        </div>
+        <div class="slider-container">
+            <input type="range" id="dateRange" min="0" max="{{ (weather_data | length - 72) if (weather_data | length) > 72 else 0 }}" value="{{ (weather_data | length - 72) if (weather_data | length) > 72 else 0 }}" step="1">
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Plants List</h1>
+        <input type="text" id="searchInput" placeholder="Search by name, category, or sown date" onkeyup="filterTable()">
+        <div class="table-container">
+            <table id="plantsTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Sown Date</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plant in plants %}
+                    <tr>
+                        <td>{{ plant['name'] }}</td>
+                        <td>{{ plant['category'] }}</td>
+                        <td>{{ plant['sown'] }}</td>
+                        <td><a href="{{ url_for('moisture_watering', plant_id=plant['plant_id']) }}">View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+        const labels = {{ weather_data | map(attribute='date') | list | tojson }};
+        const temperatureData = {{ weather_data | map(attribute='temperature') | list | tojson }};
+        const humidityData = {{ weather_data | map(attribute='humidity') | list | tojson }};
+        const initialIndex = Math.max(0, labels.length - 72);
+
+        const weatherChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.slice(initialIndex),
+                datasets: [
+                    {
+                        label: 'Temperature (°C)',
+                        data: temperatureData.slice(initialIndex),
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Humidity (%)',
+                        data: humidityData.slice(initialIndex),
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        const slider = document.getElementById('dateRange');
+        slider.addEventListener('input', function() {
+            const index = parseInt(this.value);
+            weatherChart.data.labels = labels.slice(index, index + 72);
+            weatherChart.data.datasets[0].data = temperatureData.slice(index, index + 72);
+            weatherChart.data.datasets[1].data = humidityData.slice(index, index + 72);
+            weatherChart.update();
+        });
+
+        function filterTable() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#plantsTable tbody tr');
+            rows.forEach(row => {
+                const cells = row.getElementsByTagName('td');
+                const matches = Array.from(cells).some(cell => cell.textContent.toLowerCase().includes(input));
+                row.style.display = matches ? "" : "none";
+            });
+        }
+    </script>
+</body>
+</html>
